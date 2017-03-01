@@ -3,7 +3,7 @@
 	"version": "1.0.0",
 	"description": "getUserProfile",
 	"author": "luoye <luoyefe@gmail.com>",
-	"main": "src/app.js",
+	"main": "dist/get-user-profile.min.js",
 	"scripts": {
 		"dev": "./node_modules/.bin/rollup -w -m -c build/config.js --env=dev",
 		"build": "node build/build.js"
