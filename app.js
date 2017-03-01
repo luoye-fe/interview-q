@@ -1,6 +1,6 @@
 //现在有一个 Ajax 接口，根据用户 uid 获取用户 profile 信息，是一个批量接口。我把这个 ajax 请求封装成以下的异步函数
 var requestUserProfile = function(uidList) { // uidList 是一个数组，最大接受 100 个 uid
-
+    console.log('走接口啦', uidList.toString());
     // 这个方法的实现不能修改
 
     /** 先去重 */
@@ -110,16 +110,36 @@ class TaskQ {
     constructor() {
         this.queue = []; // id 列表
         this.debounceRun = debounce(this.runRealReQuest, 100);
+        this.extraQueue = []; // 100个以外的 id 列表
     }
     add(id) {
         // 防止重复
-        if (this.queue.indexOf(id) === -1) this.queue.push(id);
-        // 调用 add 函数后执行 debounceRun，完成数据请求后，触发 'done' 事件
+        if (this.queue.indexOf(id) === -1) {
+            if (this.queue.length >= 100) { // 多余 100 个的请求先放到一个数组中
+                this.extraQueue.push(id);
+            } else {
+                this.queue.push(id);
+            }
+        };
+        this.run();
+    }
+    run() {
+        // 执行 debounceRun
         this.debounceRun()
             .then(profiles => {
-                ProfileEventBus.emit('done', profiles);
-                this.queue = [];
+                // 完成数据请求
+                this.loop(profiles);
             });
+    }
+    loop(profiles) {
+        // 触发 'done' 事件，通知调用者执行回调
+        ProfileEventBus.emit('done', profiles);
+        this.queue = [];
+        // 大于100个的请求递归调用，直到 extraQueue 里没有内容
+        if (this.extraQueue.length) {
+            this.queue = this.extraQueue.splice(0, 100);
+            this.run();
+        }
     }
     runRealReQuest() {
         // 获取数据，走缓存或者走接口
@@ -132,7 +152,7 @@ class TaskQ {
                 if (cur) {
                     result.push(cur);
                     // 有缓存的 uid 从备请求列表中删除
-                    curQueue.splice(i, 1);
+                    curQueue.shift();
                 }
             }
             this.queue = curQueue;
@@ -195,8 +215,8 @@ function getUserProfileHelper(id) {
         // 监听本次队列的 done 事件
         ProfileEventBus.on('done', (profiles) => {
             for (let i in profiles) {
-                // uid 与 id 一致的 返回给调用者
-                if (profiles[i].uid && profiles[i].uid === id) resolve(profiles[i]);
+                // uid 与 id 一致的 返回给调用者 (warning: uid 为 0 的时候！！！)
+                if (profiles[i].uid !== undefined && profiles[i].uid === id) return resolve(profiles[i]);
             }
         });
     });
@@ -209,28 +229,37 @@ function getUserProfile(id) {
 
 
 // 业务逻辑
-getUserProfile(1)
-    .then(res => {
-        console.log(1);
-        console.log(res);
-    });
-getUserProfile(2)
-    .then(res => {
-        console.log(2);
-        console.log(res);
-    });
+for (let i = 0; i < 205; i++) { // 测试大于 100 个的情景
+    (function(item) {
+        getUserProfile(item)
+            .then(res => {
+                console.log(item, res);
+            });
+    })(i)
+}
 
-setTimeout(function() {
-    // 从缓存走
-    getUserProfile(2)
-        .then(res => {
-            console.log(2);
-            console.log(res);
-        });
-    // 从接口走
-    getUserProfile(3)
-        .then(res => {
-            console.log(3);
-            console.log(res);
-        });
-}, 2000)
+// getUserProfile(1)
+//     .then(res => {
+//         console.log(1);
+//         console.log(res);
+//     });
+// getUserProfile(2)
+//     .then(res => {
+//         console.log(2);
+//         console.log(res);
+//     });
+
+// setTimeout(function() {
+//     // 从缓存走
+//     getUserProfile(2)
+//         .then(res => {
+//             console.log(2);
+//             console.log(res);
+//         });
+//     // 从接口走
+//     // getUserProfile(3)
+//     //     .then(res => {
+//     //         console.log(3);
+//     //         console.log(res);
+//     //     });
+// }, 2000)
