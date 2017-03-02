@@ -1,4 +1,5 @@
 // 缓存
+// 直接存放在内存中，放到 ls 中也可
 class Cache {
 	constructor(options) {
 		this.options = options || {};
