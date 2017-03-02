@@ -1,7 +1,3 @@
-/*
- * getUserProfile v1.0.0
- * (c) 2017 luoye <luoyefe@gmail.com>
- */
 (function (global, factory) {
   typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
   typeof define === 'function' && define.amd ? define(factory) :
@@ -280,12 +276,11 @@ var Cache = function () {
 				setTime: Date.now(),
 				cacheTime: ms || this.cacheMs
 			};
-			this.check();
 		}
 	}, {
 		key: "get",
 		value: function get(key) {
-			this.check();
+			this.check(key);
 			return this.cache[key] ? this.cache[key].val : null;
 		}
 	}, {
@@ -295,14 +290,10 @@ var Cache = function () {
 		}
 	}, {
 		key: "check",
-		value: function check() {
-			var _this = this;
-
+		value: function check(key) {
 			// 检测是否过期，过期了删除
-			Object.keys(this.cache).forEach(function (item) {
-				var cur = _this.cache[item];
-				if (cur && Date.now() - cur.setTime > cur.cacheTime) _this.delete(item);
-			});
+			var cur = this.cache[key];
+			if (cur && Date.now() - cur.setTime > cur.cacheTime) this.delete(key);
 		}
 	}]);
 	return Cache;
@@ -357,7 +348,8 @@ var EventBus = function () {
  * 基本：先用节流函数将在设定时间间隔内的请求收集起来一起执行，多余100个的请求先处理100个，剩下的递归调用，每次处理100个，获取数据完毕之后用广播机制告知每个调用者相对应的数据，
  * 进一步：本地缓存一份已知的 profile list，设定缓存时间，缓存时间内不发起真实请求，从本地取
  * 再进一步：ES6 来实现
- * 再再进一步：模块化，eventBus 和 cache 可以封装起来，最后 export 一个函数，调用的时候 import 即可
+ * 再再进一步：模块化，eventBus 和 cache 可以封装起来，最后 export 一个函数，调用时 import 即可
+ * 再再再进一步：rollup 构建，umd 模式，支持所有调用方式
  */
 
 // 现在有一个 Ajax 接口，根据用户 uid 获取用户 profile 信息，是一个批量接口。我把这个 ajax 请求封装成以下的异步函数
@@ -518,3 +510,4 @@ function getUserProfile(id) {
 return getUserProfile;
 
 })));
+//# sourceMappingURL=get-user-profile.js.map

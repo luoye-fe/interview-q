@@ -11,21 +11,18 @@ class Cache {
 			setTime: Date.now(),
 			cacheTime: ms || this.cacheMs
 		};
-		this.check();
 	}
 	get(key) {
-		this.check();
+		this.check(key);
 		return this.cache[key] ? this.cache[key].val : null;
 	}
 	delete(key) {
 		delete this.cache[key];
 	}
-	check() {
+	check(key) {
 		// 检测是否过期，过期了删除
-		Object.keys(this.cache).forEach(item => {
-			let cur = this.cache[item];
-			if (cur && (Date.now() - cur.setTime) > cur.cacheTime) this.delete(item);
-		});
+		let cur = this.cache[key];
+		if (cur && (Date.now() - cur.setTime) > cur.cacheTime) this.delete(key);
 	}
 }
 
