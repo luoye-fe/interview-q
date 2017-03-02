@@ -55,6 +55,8 @@ var requestUserProfile = function(uidList) { // uidList 是一个数组，最大
  * 再进一步：ES6 来实现
  * 再再进一步：模块化，eventBus 和 cache 可以封装起来，最后 export 一个函数，调用时 import 即可
  * 再再再进一步：rollup 构建，umd 模式，支持所有调用方式
+ * 思考：错误处理的问题，原函数出错后直接把出错的 uid 过滤掉了，考虑真实情况，可以返回一个错误标志的对象，如 { uid: uid, error: true, e: '出错啦' } 然后调用者进行相应的处理
+ * 思考：去重，es6 可以用 Set
  */
 
 
@@ -67,12 +69,24 @@ function debounce(func, wait, immediate) {
         return new Promise((resolve, reject) => {
             function later() {
                 timeout = null;
-                if (!immediate) resolve(func.apply(_this, args));
+                if (!immediate) {
+                    run().then((res) => resolve(res)).catch(e => {
+                        reject(e);
+                    });
+                }
             };
+
+            function run() {
+                return func.apply(_this, args);
+            }
             const callNow = immediate && !timeout;
             clearTimeout(timeout);
             timeout = setTimeout(later, wait);
-            if (callNow) resolve(func.apply(_this, args));
+            if (callNow) {
+                run().then((res) => resolve(res)).catch(e => {
+                    reject(e);
+                });
+            }
         });
     };
 };
