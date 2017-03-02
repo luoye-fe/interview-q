@@ -13,12 +13,28 @@ function debounce(func, wait, immediate) {
 		return new Promise(function (resolve, reject) {
 			function later() {
 				timeout = null;
-				if (!immediate) resolve(func.apply(_this, args));
+				if (!immediate) {
+					run().then(function (res) {
+						return resolve(res);
+					}).catch(function (e) {
+						reject(e);
+					});
+				}
+			}
+
+			function run() {
+				return func.apply(_this, args);
 			}
 			var callNow = immediate && !timeout;
 			clearTimeout(timeout);
 			timeout = setTimeout(later, wait);
-			if (callNow) resolve(func.apply(_this, args));
+			if (callNow) {
+				run().then(function (res) {
+					return resolve(res);
+				}).catch(function (e) {
+					reject(e);
+				});
+			}
 		});
 	};
 }
@@ -258,6 +274,7 @@ var toConsumableArray = function (arr) {
 };
 
 // 缓存
+// 直接存放在内存中，放到 ls 中也可
 var Cache = function () {
 	function Cache(options) {
 		classCallCheck(this, Cache);
@@ -350,6 +367,7 @@ var EventBus = function () {
  * 再进一步：ES6 来实现
  * 再再进一步：模块化，eventBus 和 cache 可以封装起来，最后 export 一个函数，调用时 import 即可
  * 再再再进一步：rollup 构建，umd 模式，支持所有调用方式
+ * 思考：错误处理的问题，原函数出错后直接把出错的 uid 过滤掉了，考虑真实情况，可以返回一个错误标志的对象，如 { uid: uid, error: true, e: '出错啦' } 然后调用者进行相应的处理
  */
 
 // 现在有一个 Ajax 接口，根据用户 uid 获取用户 profile 信息，是一个批量接口。我把这个 ajax 请求封装成以下的异步函数
@@ -381,7 +399,8 @@ var requestUserProfile = function requestUserProfile(uidList) {
 			var profileList = _uidList.map(function (uid) {
 				if (uid < 0) {
 					// 模拟 uid 传错，服务端异常，获取不到部分 uid 对应的 profile 等异常场景
-					return null;
+					// return null;
+					return { uid: uid, error: true, e: '出错啦' }; // 改造了下错误返回值 = =
 				} else {
 					return {
 						uid: uid,
@@ -437,11 +456,15 @@ var TaskQ = function () {
 			this.debounceRun().then(function (profiles) {
 				// 完成数据请求
 				_this.loop(profiles);
+			}).catch(function (e) {
+				_this.loop(null, e);
 			});
 		}
 	}, {
 		key: 'loop',
-		value: function loop(profiles) {
+		value: function loop(profiles, error) {
+			// handle error
+			if (error) return ProfileEventBus.emit('error', error);
 			// 触发 'done' 事件，通知调用者执行回调
 			ProfileEventBus.emit('done', profiles);
 			this.queue = [];
@@ -474,10 +497,15 @@ var TaskQ = function () {
 					// 请求真实接口
 					requestUserProfile(_this2.queue).then(function (profiles) {
 						for (var _i in profiles) {
-							// 设置缓存
-							ProfileCache.set(profiles[_i].uid, profiles[_i]);
+							// 未出错的设置缓存
+							if (!profiles[_i].error) {
+								ProfileCache.set(profiles[_i].uid, profiles[_i]);
+							}
 						}
+						// 合并返回
 						resolve(result.concat(profiles));
+					}).catch(function (e) {
+						reject(e);
 					});
 				} else {
 					resolve(result);
@@ -503,6 +531,10 @@ function getUserProfile(id) {
 				// uid 与 id 一致的 返回给调用者 (warning: uid 为 0 的时候！！！)
 				if (profiles[i].uid !== undefined && profiles[i].uid === id) return resolve(profiles[i]);
 			}
+		});
+		ProfileEventBus.on('error', function (e) {
+			// 处理错误
+			reject(e);
 		});
 	});
 }

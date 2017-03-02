@@ -1,13 +1,16 @@
 /* eslint-disable */
 // 业务逻辑
-for (let i = 0; i < 205; i++) { // 测试大于 100 个的情景
-	(function(item) {
-		getUserProfile(item)
-			.then(res => {
-				console.log(item, res);
-			});
-	})(i);
-}
+// for (let i = -2; i < 205; i++) { // 测试大于 100 个的情景
+// 	(function(item) {
+// 		getUserProfile(item)
+// 			.then(res => {
+// 				console.log(item, res);
+// 			})
+// 			.catch(e => {
+// 				console.log(e);
+// 			});
+// 	})(i);
+// }
 
 // getUserProfile(1)
 //     .then(res => {

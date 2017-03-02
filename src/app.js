@@ -4,6 +4,7 @@
  * 再进一步：ES6 来实现
  * 再再进一步：模块化，eventBus 和 cache 可以封装起来，最后 export 一个函数，调用时 import 即可
  * 再再再进一步：rollup 构建，umd 模式，支持所有调用方式
+ * 思考：错误处理的问题，原函数出错后直接把出错的 uid 过滤掉了，考虑真实情况，可以返回一个错误标志的对象，如 { uid: uid, error: true, e: '出错啦' } 然后调用者进行相应的处理
  */
 
 import debounce from './debounce.js';
@@ -36,7 +37,8 @@ var requestUserProfile = function(uidList) { // uidList 是一个数组，最大
 		}).then(function() {
 			var profileList = _uidList.map(function(uid) {
 				if (uid < 0) { // 模拟 uid 传错，服务端异常，获取不到部分 uid 对应的 profile 等异常场景
-					return null;
+					// return null;
+					return { uid: uid, error: true, e: '出错啦' } // 改造了下错误返回值 = =
 				} else {
 					return {
 						uid: uid,
@@ -83,9 +85,14 @@ class TaskQ {
 			.then(profiles => {
 				// 完成数据请求
 				this.loop(profiles);
+			})
+			.catch(e => {
+				this.loop(null, e);
 			});
 	}
-	loop(profiles) {
+	loop(profiles, error) {
+		// handle error
+		if (error) return ProfileEventBus.emit('error', error);
 		// 触发 'done' 事件，通知调用者执行回调
 		ProfileEventBus.emit('done', profiles);
 		this.queue = [];
@@ -115,10 +122,16 @@ class TaskQ {
 				requestUserProfile(this.queue)
 					.then(profiles => {
 						for (let i in profiles) {
-							// 设置缓存
-							ProfileCache.set(profiles[i].uid, profiles[i]);
+							// 未出错的设置缓存
+							if (!profiles[i].error) {
+								ProfileCache.set(profiles[i].uid, profiles[i]);
+							}
 						}
+						// 合并返回
 						resolve(result.concat(profiles));
+					})
+					.catch(e => {
+						reject(e);
 					});
 			} else {
 				resolve(result);
@@ -143,5 +156,9 @@ export default function getUserProfile(id) {
 				if (profiles[i].uid !== undefined && profiles[i].uid === id) return resolve(profiles[i]);
 			}
 		});
+		ProfileEventBus.on('error', e => {
+			// 处理错误
+			reject(e);
+		})
 	});
 }

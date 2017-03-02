@@ -7,12 +7,24 @@ export default function debounce(func, wait, immediate) {
 		return new Promise((resolve, reject) => {
 			function later() {
 				timeout = null;
-				if (!immediate) resolve(func.apply(_this, args));
+				if (!immediate) {
+					run().then((res) => resolve(res)).catch(e => {
+						reject(e);
+					});
+				}
 			};
+
+			function run() {
+				return func.apply(_this, args);
+			}
 			const callNow = immediate && !timeout;
 			clearTimeout(timeout);
 			timeout = setTimeout(later, wait);
-			if (callNow) resolve(func.apply(_this, args));
+			if (callNow) {
+				run().then((res) => resolve(res)).catch(e => {
+					reject(e);
+				});
+			}
 		});
 	};
 };

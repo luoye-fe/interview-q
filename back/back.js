@@ -53,8 +53,10 @@ var requestUserProfile = function(uidList) { // uidList 是一个数组，最大
  * 基本：先用节流函数将在设定时间间隔内的请求收集起来一起执行，多余100个的请求先处理100个，剩下的递归调用，每次处理100个，获取数据完毕之后用广播机制告知每个调用者相对应的数据，
  * 进一步：本地缓存一份已知的 profile list，设定缓存时间，缓存时间内不发起真实请求，从本地取
  * 再进一步：ES6 来实现
- * 再再进一步：模块化，eventBus 和 cache 可以封装起来，最后 export 一个函数，调用的时候 import 即可
+ * 再再进一步：模块化，eventBus 和 cache 可以封装起来，最后 export 一个函数，调用时 import 即可
+ * 再再再进一步：rollup 构建，umd 模式，支持所有调用方式
  */
+
 
 // promise 版 节流函数
 function debounce(func, wait, immediate) {
@@ -76,6 +78,7 @@ function debounce(func, wait, immediate) {
 };
 
 // 缓存
+// 直接存放在内存中，放到 ls 中也可
 class Cache {
     constructor(options) {
         this.options = options || {};
@@ -88,22 +91,18 @@ class Cache {
             setTime: Date.now(),
             cacheTime: ms || this.cacheMs
         };
-        this.check();
     }
     get(key) {
-        this.check();
+        this.check(key);
         return this.cache[key] ? this.cache[key].val : null;
     }
     delete(key) {
         delete this.cache[key];
     }
-    check() {
+    check(key) {
         // 检测是否过期，过期了删除
-        Object.keys(this.cache).forEach(item => {
-            let cur = this.cache[item];
-            if (cur && (Date.now() - cur.setTime) > cur.cacheTime) this.delete(item);
-        });
-
+        let cur = this.cache[key];
+        if (cur && (Date.now() - cur.setTime) > cur.cacheTime) this.delete(key);
     }
 }
 
