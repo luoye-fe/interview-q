@@ -1,47 +1,12 @@
 /*
- * getUserProfile v1.0.0
+ * UserProfile v1.0.0
  * (c) 2017 luoye <luoyefe@gmail.com>
  */
 (function (global, factory) {
   typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
   typeof define === 'function' && define.amd ? define(factory) :
-  (global.getUserProfile = factory());
+  (global.UserProfile = factory());
 }(this, (function () { 'use strict';
-
-// promise 版 节流函数
-function debounce(func, wait, immediate) {
-	var timeout = void 0;
-	return function () {
-		var _this = this;
-		var args = arguments;
-		return new Promise(function (resolve, reject) {
-			function later() {
-				timeout = null;
-				if (!immediate) {
-					run().then(function (res) {
-						return resolve(res);
-					}).catch(function (e) {
-						reject(e);
-					});
-				}
-			}
-
-			function run() {
-				return func.apply(_this, args);
-			}
-			var callNow = immediate && !timeout;
-			clearTimeout(timeout);
-			timeout = setTimeout(later, wait);
-			if (callNow) {
-				run().then(function (res) {
-					return resolve(res);
-				}).catch(function (e) {
-					reject(e);
-				});
-			}
-		});
-	};
-}
 
 var asyncGenerator = function () {
   function AwaitValue(value) {
@@ -277,49 +242,6 @@ var toConsumableArray = function (arr) {
   }
 };
 
-// 缓存
-// 直接存放在内存中，放到 ls 中也可
-var Cache = function () {
-	function Cache(options) {
-		classCallCheck(this, Cache);
-
-		this.options = options || {};
-		this.cacheMs = this.options.cacheMs || 60 * 1000; // 默认缓存时间一分钟
-		this.cache = {};
-	}
-
-	createClass(Cache, [{
-		key: "set",
-		value: function set(key, value, ms) {
-			// ms 可单独设置缓存时间
-			this.cache[key] = {
-				val: value,
-				setTime: Date.now(),
-				cacheTime: ms || this.cacheMs
-			};
-		}
-	}, {
-		key: "get",
-		value: function get(key) {
-			this.check(key);
-			return this.cache[key] ? this.cache[key].val : null;
-		}
-	}, {
-		key: "delete",
-		value: function _delete(key) {
-			delete this.cache[key];
-		}
-	}, {
-		key: "check",
-		value: function check(key) {
-			// 检测是否过期，过期了删除
-			var cur = this.cache[key];
-			if (cur && Date.now() - cur.setTime > cur.cacheTime) this.delete(key);
-		}
-	}]);
-	return Cache;
-}();
-
 // 事件广播
 var EventBus = function () {
 	function EventBus() {
@@ -365,18 +287,56 @@ var EventBus = function () {
 	return EventBus;
 }();
 
-/*
- * 基本：先用节流函数将在设定时间间隔内的请求收集起来一起执行，多余100个的请求先处理100个，剩下的递归调用，每次处理100个，获取数据完毕之后用广播机制告知每个调用者相对应的数据，
- * 进一步：本地缓存一份已知的 profile list，设定缓存时间，缓存时间内不发起真实请求，从本地取
- * 再进一步：ES6 来实现
- * 再再进一步：模块化，eventBus 和 cache 可以封装起来，最后 export 一个函数，调用时 import 即可
- * 再再再进一步：rollup 构建，umd 模式，支持所有调用方式
- * 思考：错误处理的问题，原函数出错后直接把出错的 uid 过滤掉了，考虑真实情况，可以返回一个错误标志的对象，如 { uid: uid, error: true, e: '出错啦' } 然后调用者进行相应的处理
- * 思考：去重，es6 可以用 Set
- */
+// 缓存
+// 直接存放在内存中，放到 ls 中也可
+var Cache = function () {
+	function Cache(options) {
+		classCallCheck(this, Cache);
+
+		this.options = options || {};
+		this.cacheMs = this.options.cacheMs || 60 * 1000; // 默认缓存时间一分钟
+		this.cache = {};
+	}
+
+	createClass(Cache, [{
+		key: "set",
+		value: function set(key, value, ms) {
+			// ms 可单独设置缓存时间
+			this.cache[key] = {
+				val: value,
+				setTime: Date.now(),
+				cacheTime: ms || this.cacheMs
+			};
+		}
+	}, {
+		key: "get",
+		value: function get(key) {
+			this.check(key);
+			return this.cache[key] ? this.cache[key].val : null;
+		}
+	}, {
+		key: "delete",
+		value: function _delete(key) {
+			delete this.cache[key];
+		}
+	}, {
+		key: "deleteAll",
+		value: function deleteAll() {
+			this.cache = {};
+		}
+	}, {
+		key: "check",
+		value: function check(key) {
+			// 检测是否过期，过期了删除
+			var cur = this.cache[key];
+			if (cur && Date.now() - cur.setTime > cur.cacheTime) this.delete(key);
+		}
+	}]);
+	return Cache;
+}();
 
 // 现在有一个 Ajax 接口，根据用户 uid 获取用户 profile 信息，是一个批量接口。我把这个 ajax 请求封装成以下的异步函数
-var requestUserProfile = function requestUserProfile(uidList) {
+function requestUserProfile(uidList) {
 	// uidList 是一个数组，最大接受 100 个 uid
 	console.log('走接口啦', uidList.toString());
 	// 这个方法的实现不能修改
@@ -394,9 +354,6 @@ var requestUserProfile = function requestUserProfile(uidList) {
 	_tmp = null;
 	uidList = null;
 
-	/* Set 去重 */
-	// uidList = [...new Set(uidList)];
-
 	return Promise.resolve().then(function () {
 		return new Promise(function (resolve, reject) {
 			setTimeout(function () {
@@ -407,8 +364,7 @@ var requestUserProfile = function requestUserProfile(uidList) {
 			var profileList = _uidList.map(function (uid) {
 				if (uid < 0) {
 					// 模拟 uid 传错，服务端异常，获取不到部分 uid 对应的 profile 等异常场景
-					// return null;
-					return { uid: uid, error: true, e: '出错啦' }; // 改造了下错误返回值 = =
+					return null;
 				} else {
 					return {
 						uid: uid,
@@ -422,7 +378,7 @@ var requestUserProfile = function requestUserProfile(uidList) {
 			});
 		});
 	});
-};
+}
 
 // 现在我们有很多业务都需要根据 uid 获取 userProfile , 大多数业务的需求都是给一个 uid，获取 profile 。为了性能，我们需要把这个单个的请求合并成批量请求。
 
@@ -432,121 +388,132 @@ var requestUserProfile = function requestUserProfile(uidList) {
 // 完成以下方法，接收一个参数 uid，返回一个 Promise，当成功请求到 profile 的时候， resolve 对应的profile , 请求失败 reject
 // 例如  getUserProfile(1).then(function(profile){ console.log(profile.uid === 1) // true });  // 假设请求成功了。
 
-var TaskQ = function () {
-	function TaskQ() {
-		classCallCheck(this, TaskQ);
+/*
+ * 基本：先用节流函数将在设定时间间隔内的请求收集起来一起执行，多余100个的请求先处理100个，剩下的递归调用，每次处理100个，获取数据完毕之后用广播机制告知每个调用者相对应的数据，
+ * 进一步：本地缓存一份已知的 profile list，设定缓存时间，缓存时间内不发起真实请求，从本地取
+ * 再进一步：ES6 来实现
+ * 再再进一步：模块化，eventBus 和 cache 可以封装起来，最后 export 一个函数，调用时 import 即可
+ * 再再再进一步：rollup 构建，umd 模式，支持所有调用方式
 
-		this.queue = []; // id 列表
-		this.debounceRun = debounce(this.runRealReQuest, 100);
-		this.extraQueue = []; // 100个以外的 id 列表
+ * 思考：错误处理的问题，原函数出错后直接把出错的 uid 过滤掉了，考虑真实情况，可以返回一个错误标志的对象，如 { uid: uid, error: true, e: '出错啦' } 然后调用者进行相应的处理
+ * 思考：去重，es6 可以用 Set
+
+ * 改进：如何在初始化时更快的获取数据／性能优化／错误处理
+
+ * 优化1: 实例化时可以选择性的预缓存 user profile
+ * 优化2: 每个 get 都可以 handle 到相应的 error，整个接口出错也可获取到错误
+ * 优化3: for 循环优化，仅剩两次，一次获取完数据单独触发 done 事件，一次有出错单独触发 error 事件
+ * 优化4: 有缓存时直接返回，不等待 debounce 完成
+ */
+
+var ProfileCache = new Cache();
+var Event = new EventBus();
+
+var UserProfile = function () {
+	function UserProfile() {
+		var options = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+		classCallCheck(this, UserProfile);
+
+		this.options = Object.assign({
+			preLoadList: []
+		}, options);
+		this.cacheKey = 'user-profiles';
+		// 预请求列表去重
+		this.queue = [].concat(toConsumableArray(new Set(this.options.preLoadList)));
+		this.debounceRun = this.debounce(this.request.bind(this), 100);
+		this.debounceRun(this.queue);
 	}
 
-	createClass(TaskQ, [{
-		key: 'add',
-		value: function add(id) {
-			// 防止重复
-			if (this.queue.indexOf(id) === -1) {
-				if (this.queue.length >= 100) {
-					// 多余 100 个的请求先放到一个数组中
-					this.extraQueue.push(id);
-				} else {
-					this.queue.push(id);
-				}
-			}
-			this.run();
-		}
-	}, {
-		key: 'run',
-		value: function run() {
-			var _this = this;
-
-			// 执行 debounceRun
-			this.debounceRun().then(function (profiles) {
-				// 完成数据请求
-				_this.loop(profiles);
-			}).catch(function (e) {
-				_this.loop(null, e);
-			});
-		}
-	}, {
-		key: 'loop',
-		value: function loop(profiles, error) {
-			// handle error
-			if (error) return ProfileEventBus.emit('error', error);
-			// 触发 'done' 事件，通知调用者执行回调
-			ProfileEventBus.emit('done', profiles);
-			this.queue = [];
-			// 大于100个的请求递归调用，直到 extraQueue 里没有内容
-			if (this.extraQueue.length) {
-				this.queue = this.extraQueue.splice(0, 100);
-				this.run();
-			}
-		}
-	}, {
-		key: 'runRealReQuest',
-		value: function runRealReQuest() {
+	createClass(UserProfile, [{
+		key: 'get',
+		value: function get(id, noCache) {
 			var _this2 = this;
 
-			// 获取数据，走缓存或者走接口
 			return new Promise(function (resolve, reject) {
-				var result = [];
-				var curQueue = [].concat(toConsumableArray(_this2.queue));
-				for (var i in _this2.queue) {
-					// 从缓存中取
-					var cur = ProfileCache.get(_this2.queue[i]);
-					if (cur) {
-						result.push(cur);
-						// 有缓存的 uid 从备请求列表中删除
-						curQueue.shift();
-					}
-				}
-				_this2.queue = curQueue;
-				if (_this2.queue.length) {
-					// 请求真实接口
-					requestUserProfile(_this2.queue).then(function (profiles) {
-						for (var _i in profiles) {
-							// 未出错的设置缓存
-							if (!profiles[_i].error) {
-								ProfileCache.set(profiles[_i].uid, profiles[_i]);
-							}
-						}
-						// 合并返回
-						resolve(result.concat(profiles));
-					}).catch(function (e) {
-						reject(e);
-					});
+				var possibleCachedVal = ProfileCache.get(id);
+				if (possibleCachedVal) {
+					resolve(possibleCachedVal);
 				} else {
-					resolve(result);
+					_this2.queue.push(id);
+					Event.on('done' + id, function (profile) {
+						resolve(profile);
+					});
+					Event.on('error' + id, function (err) {
+						reject(err);
+					});
+					_this2.debounceRun(_this2.queue, function (e) {
+						// 接口出错了
+						if (e) return reject(e);
+					});
 				}
 			});
 		}
+	}, {
+		key: 'clear',
+		value: function clear() {
+			// clear all cache
+			ProfileCache.deleteAll();
+		}
+	}, {
+		key: 'request',
+		value: function request() {
+			var uidList = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [];
+			var cb = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : function () {};
+
+			var _this = this;
+			var result = {};
+			// 去重
+			uidList = [].concat(toConsumableArray(new Set(uidList)));
+			loop();
+			function loop() {
+				// 取出 100 个递归调用
+				var extraList = uidList.splice(0, 100);
+				requestUserProfile(extraList).then(function (profiles) {
+					profiles.forEach(function (item) {
+						result[item.uid] = item;
+						// 剩下的都是获取数据出错的 uid
+						extraList.splice(extraList.indexOf(item.uid), 1);
+						// 缓存起来
+						ProfileCache.set(item.uid, item);
+						// 触发完成
+						Event.emit('done' + item.uid, item);
+					});
+					// 获取失败的 uid 列表
+					extraList.forEach(function (item) {
+						Event.emit('error' + item, {
+							uid: item,
+							error: true
+						});
+					});
+					if (uidList.length) return loop();
+					_this.queue = [];
+				}).catch(function (e) {
+					_this.queue = [];
+					cb(e, result);
+				});
+			}
+		}
+	}, {
+		key: 'debounce',
+		value: function debounce(func, wait, immediate) {
+			var timeout = void 0;
+			return function () {
+				var _this = this;
+				var args = arguments;
+				function later() {
+					timeout = null;
+					if (!immediate) func.apply(_this, args);
+				}
+				var callNow = immediate && !timeout;
+				clearTimeout(timeout);
+				timeout = setTimeout(later, wait);
+				if (callNow) func.apply(_this, args);
+			};
+		}
 	}]);
-	return TaskQ;
+	return UserProfile;
 }();
 
-var ProfileEventBus = new EventBus();
-var ProfileRequetTaskQ = new TaskQ();
-var ProfileCache = new Cache();
-
-// 最后使用者调用的函数
-function getUserProfile(id) {
-	return new Promise(function (resolve, reject) {
-		// 向队列中添加 id
-		ProfileRequetTaskQ.add(id);
-		// 监听本次队列的 done 事件
-		ProfileEventBus.on('done', function (profiles) {
-			for (var i in profiles) {
-				// uid 与 id 一致的 返回给调用者 (warning: uid 为 0 的时候！！！)
-				if (profiles[i].uid !== undefined && profiles[i].uid === id) return resolve(profiles[i]);
-			}
-		});
-		ProfileEventBus.on('error', function (e) {
-			// 处理错误
-			reject(e);
-		});
-	});
-}
-
-return getUserProfile;
+return UserProfile;
 
 })));

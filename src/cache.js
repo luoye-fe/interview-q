@@ -20,6 +20,9 @@ class Cache {
 	delete(key) {
 		delete this.cache[key];
 	}
+	deleteAll() {
+		this.cache = {};
+	}
 	check(key) {
 		// 检测是否过期，过期了删除
 		let cur = this.cache[key];

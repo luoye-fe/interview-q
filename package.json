@@ -1,7 +1,7 @@
 {
 	"name": "get-user-profile",
 	"version": "1.0.0",
-	"description": "getUserProfile",
+	"description": "UserProfile",
 	"author": "luoye <luoyefe@gmail.com>",
 	"main": "dist/get-user-profile.min.js",
 	"scripts": {

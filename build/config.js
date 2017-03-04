@@ -16,7 +16,7 @@ var config = {
 if (env === 'dev') {
 	module.exports = Object.assign({
 		format: 'umd',
-		moduleName: 'getUserProfile',
+		moduleName: 'UserProfile',
 		dest: path.join(__dirname, '../dist/get-user-profile.js')
 	}, config);
 } else {
