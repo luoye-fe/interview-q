@@ -14,6 +14,8 @@
  * 优化2: 每个 get 都可以 handle 到相应的 error，整个接口出错也可获取到错误
  * 优化3: for 循环优化，仅剩两次，一次获取完数据单独触发 done 事件，一次有出错单独触发 error 事件
  * 优化4: 有缓存时直接返回，不等待 debounce 完成
+ * 优化5: 收集 100 个 uid，立即请求数据，不等待全部 uid 收集完毕
+ * 优化6: 精简了代码，减少不必要的函数调用，嵌套，额外判断等
  */
 
 import EventBus from './event-bus.js';
@@ -24,35 +26,41 @@ import requestUserProfile from './request-user-profile.js';
 const ProfileCache = new Cache();
 const Event = new EventBus();
 
-class UserProfile {
+class GetUserProfile {
 	constructor(options = {}) {
 		this.options = Object.assign({
 			preLoadList: []
 		}, options);
-		this.cacheKey = 'user-profiles';
-		// 预请求列表去重
+		// 预请求列表合并到队列中并去重
 		this.queue = [...new Set(this.options.preLoadList)];
-		this.debounceRun = this.debounce(this.request.bind(this), 100);
-		this.debounceRun(this.queue);
+		this.debounceCollect = this.debounce((callback = function() {}) => callback(), 100);
+		// 预请求
+		this.debounceCollect(this.request.bind(this, this.queue));
 	}
 	get(id, noCache) {
 		return new Promise((resolve, reject) => {
 			let possibleCachedVal = ProfileCache.get(id);
+			// 缓存命中，直接返回
 			if (possibleCachedVal) {
-				resolve(possibleCachedVal);
-			} else {
-				this.queue.push(id);
-				Event.on('done' + id, profile => {
-					resolve(profile);
-				});
-				Event.on('error' + id, err => {
-					reject(err);
-				});
-				this.debounceRun(this.queue, (e) => {
-					// 接口出错了
+				return resolve(possibleCachedVal);
+			}
+			// 防止重复
+			if (this.queue.indexOf(id) === -1) this.queue.push(id);
+			Event.on('done' + id, profile => {
+				resolve(profile);
+			});
+			Event.on('error' + id, err => {
+				reject(err);
+			});
+			this.debounceCollect(() => {
+				// 全部 uid 收集完毕，或者完成了 100 个的收集任务，快马加鞭开始请求接口
+				let uidList = [...this.queue];
+				// 置空，等着后面的 push
+				this.queue = [];
+				this.request(uidList, (e) => {
 					if (e) return reject(e);
 				});
-			}
+			});
 		});
 	}
 	clear() {
@@ -60,51 +68,43 @@ class UserProfile {
 		ProfileCache.deleteAll();
 	}
 	request(uidList = [], cb = function() {}) {
-		const _this = this;
 		let result = {};
-		// 去重
-		uidList = [...new Set(uidList)];
-		loop();
-		function loop () {
-			// 取出 100 个递归调用
-			let extraList = uidList.splice(0, 100);
-			requestUserProfile(extraList)
-				.then(profiles => {
-					profiles.forEach(item => {
-						result[item.uid] = item;
-						// 剩下的都是获取数据出错的 uid
-						extraList.splice(extraList.indexOf(item.uid), 1);
-						// 缓存起来
-						ProfileCache.set(item.uid, item);
-						// 触发完成
-						Event.emit('done' + item.uid, item);
-					});
-					// 获取失败的 uid 列表
-					extraList.forEach(item => {
-						Event.emit('error' + item, {
-							uid: item,
-							error: true
-						});
-					});
-					if (uidList.length) return loop();
-					_this.queue = [];
-				})
-				.catch(e => {
-					_this.queue = [];
-					cb(e, result);
+		requestUserProfile(uidList)
+			.then(profiles => {
+				profiles.forEach(item => {
+					result[item.uid] = item;
+					// 剩下的都是获取数据出错的 uid
+					uidList.splice(uidList.indexOf(item.uid), 1);
+					// 缓存起来
+					ProfileCache.set(item.uid, item);
+					// 触发完成
+					Event.emit('done' + item.uid, item);
 				});
-		}
+				// 获取失败的 uid 列表
+				uidList.forEach(item => {
+					Event.emit('error' + item, {
+						uid: item,
+						error: true // 错误标识
+					});
+				});
+			})
+			.catch(e => {
+				cb(e, result);
+			});
 	}
 	debounce(func, wait, immediate) {
+		const VM = this;
 		let timeout;
 		return function() {
 			const _this = this;
 			const args = arguments;
+
 			function later() {
 				timeout = null;
 				if (!immediate) func.apply(_this, args);
 			};
-			const callNow = immediate && !timeout;
+			// 增加 100 个收集完成 flag
+			const callNow = (immediate && !timeout) || (VM.queue.length >= 100);
 			clearTimeout(timeout);
 			timeout = setTimeout(later, wait);
 			if (callNow) func.apply(_this, args);
@@ -112,4 +112,4 @@ class UserProfile {
 	};
 }
 
-export default UserProfile;
+export default GetUserProfile;

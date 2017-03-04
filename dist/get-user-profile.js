@@ -1,11 +1,7 @@
-/*
- * UserProfile v1.0.0
- * (c) 2017 luoye <luoyefe@gmail.com>
- */
 (function (global, factory) {
   typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
   typeof define === 'function' && define.amd ? define(factory) :
-  (global.UserProfile = factory());
+  (global.GetUserProfile = factory());
 }(this, (function () { 'use strict';
 
 var asyncGenerator = function () {
@@ -404,48 +400,59 @@ function requestUserProfile(uidList) {
  * 优化2: 每个 get 都可以 handle 到相应的 error，整个接口出错也可获取到错误
  * 优化3: for 循环优化，仅剩两次，一次获取完数据单独触发 done 事件，一次有出错单独触发 error 事件
  * 优化4: 有缓存时直接返回，不等待 debounce 完成
+ * 优化5: 收集 100 个 uid，立即请求数据，不等待全部 uid 收集完毕
+ * 优化6: 精简了代码，减少不必要的函数调用，嵌套，额外判断等
  */
 
 var ProfileCache = new Cache();
 var Event = new EventBus();
 
-var UserProfile = function () {
-	function UserProfile() {
+var GetUserProfile = function () {
+	function GetUserProfile() {
 		var options = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-		classCallCheck(this, UserProfile);
+		classCallCheck(this, GetUserProfile);
 
 		this.options = Object.assign({
 			preLoadList: []
 		}, options);
-		this.cacheKey = 'user-profiles';
-		// 预请求列表去重
+		// 预请求列表合并到队列中并去重
 		this.queue = [].concat(toConsumableArray(new Set(this.options.preLoadList)));
-		this.debounceRun = this.debounce(this.request.bind(this), 100);
-		this.debounceRun(this.queue);
+		this.debounceCollect = this.debounce(function () {
+			var callback = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : function () {};
+			return callback();
+		}, 100);
+		// 预请求
+		this.debounceCollect(this.request.bind(this, this.queue));
 	}
 
-	createClass(UserProfile, [{
+	createClass(GetUserProfile, [{
 		key: 'get',
 		value: function get(id, noCache) {
 			var _this2 = this;
 
 			return new Promise(function (resolve, reject) {
 				var possibleCachedVal = ProfileCache.get(id);
+				// 缓存命中，直接返回
 				if (possibleCachedVal) {
-					resolve(possibleCachedVal);
-				} else {
-					_this2.queue.push(id);
-					Event.on('done' + id, function (profile) {
-						resolve(profile);
-					});
-					Event.on('error' + id, function (err) {
-						reject(err);
-					});
-					_this2.debounceRun(_this2.queue, function (e) {
-						// 接口出错了
+					return resolve(possibleCachedVal);
+				}
+				// 防止重复
+				if (_this2.queue.indexOf(id) === -1) _this2.queue.push(id);
+				Event.on('done' + id, function (profile) {
+					resolve(profile);
+				});
+				Event.on('error' + id, function (err) {
+					reject(err);
+				});
+				_this2.debounceCollect(function () {
+					// 全部 uid 收集完毕，或者完成了 100 个的收集任务，快马加鞭开始请求接口
+					var uidList = [].concat(toConsumableArray(_this2.queue));
+					// 置空，等着后面的 push
+					_this2.queue = [];
+					_this2.request(uidList, function (e) {
 						if (e) return reject(e);
 					});
-				}
+				});
 			});
 		}
 	}, {
@@ -460,60 +467,53 @@ var UserProfile = function () {
 			var uidList = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [];
 			var cb = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : function () {};
 
-			var _this = this;
 			var result = {};
-			// 去重
-			uidList = [].concat(toConsumableArray(new Set(uidList)));
-			loop();
-			function loop() {
-				// 取出 100 个递归调用
-				var extraList = uidList.splice(0, 100);
-				requestUserProfile(extraList).then(function (profiles) {
-					profiles.forEach(function (item) {
-						result[item.uid] = item;
-						// 剩下的都是获取数据出错的 uid
-						extraList.splice(extraList.indexOf(item.uid), 1);
-						// 缓存起来
-						ProfileCache.set(item.uid, item);
-						// 触发完成
-						Event.emit('done' + item.uid, item);
-					});
-					// 获取失败的 uid 列表
-					extraList.forEach(function (item) {
-						Event.emit('error' + item, {
-							uid: item,
-							error: true
-						});
-					});
-					if (uidList.length) return loop();
-					_this.queue = [];
-				}).catch(function (e) {
-					_this.queue = [];
-					cb(e, result);
+			requestUserProfile(uidList).then(function (profiles) {
+				profiles.forEach(function (item) {
+					result[item.uid] = item;
+					// 剩下的都是获取数据出错的 uid
+					uidList.splice(uidList.indexOf(item.uid), 1);
+					// 缓存起来
+					ProfileCache.set(item.uid, item);
+					// 触发完成
+					Event.emit('done' + item.uid, item);
 				});
-			}
+				// 获取失败的 uid 列表
+				uidList.forEach(function (item) {
+					Event.emit('error' + item, {
+						uid: item,
+						error: true // 错误标识
+					});
+				});
+			}).catch(function (e) {
+				cb(e, result);
+			});
 		}
 	}, {
 		key: 'debounce',
 		value: function debounce(func, wait, immediate) {
+			var VM = this;
 			var timeout = void 0;
 			return function () {
 				var _this = this;
 				var args = arguments;
+
 				function later() {
 					timeout = null;
 					if (!immediate) func.apply(_this, args);
 				}
-				var callNow = immediate && !timeout;
+				// 增加 100 个收集完成 flag
+				var callNow = immediate && !timeout || VM.queue.length >= 100;
 				clearTimeout(timeout);
 				timeout = setTimeout(later, wait);
 				if (callNow) func.apply(_this, args);
 			};
 		}
 	}]);
-	return UserProfile;
+	return GetUserProfile;
 }();
 
-return UserProfile;
+return GetUserProfile;
 
 })));
+//# sourceMappingURL=get-user-profile.js.map

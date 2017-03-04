@@ -25,6 +25,7 @@
 			"defaultAssignment": false
 		}],
 		"arrow-parens": 0,
-		"no-redeclare": 0
+		"no-redeclare": 0,
+		"no-inner-declarations": 0
 	}
 }

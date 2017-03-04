@@ -11,7 +11,7 @@ var version = require('../package.json').version;
 var config = require('./config.js');
 
 var banner = '/*\n' +
-	' * UserProfile v' + version + '\n' +
+	' * GetUserProfile v' + version + '\n' +
 	' * (c) ' + new Date().getFullYear() + ' luoye <luoyefe@gmail.com>\n' +
 	' */';
 
@@ -37,7 +37,7 @@ rollup.rollup(config).then(function(bundle) {
 	return bundle.generate({
 		banner: banner,
 		format: 'umd',
-		moduleName: 'UserProfile'
+		moduleName: 'GetUserProfile'
 	}).code;
 }).then(function(code) {
 	write(path.join(__dirname, '../dist/get-user-profile.js'), code);
