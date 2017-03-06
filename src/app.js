@@ -35,7 +35,7 @@ class GetUserProfile {
 		this.queue = [...new Set(this.options.preLoadList)];
 		this.debounceCollect = this.debounce((callback = function() {}) => callback(), 100);
 		// 预请求
-		this.debounceCollect(this.request.bind(this, this.queue));
+		if (this.queue.length) this.debounceCollect(this.request.bind(this, this.queue));
 	}
 	get(id, noCache) {
 		return new Promise((resolve, reject) => {

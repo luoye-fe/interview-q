@@ -426,7 +426,7 @@ var GetUserProfile = function () {
 			return callback();
 		}, 100);
 		// 预请求
-		this.debounceCollect(this.request.bind(this, this.queue));
+		if (this.queue.length) this.debounceCollect(this.request.bind(this, this.queue));
 	}
 
 	createClass(GetUserProfile, [{
