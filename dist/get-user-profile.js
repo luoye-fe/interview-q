@@ -1,3 +1,7 @@
+/*
+ * GetUserProfile v1.0.0
+ * (c) 2017 luoye <luoyefe@gmail.com>
+ */
 (function (global, factory) {
   typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
   typeof define === 'function' && define.amd ? define(factory) :
@@ -433,9 +437,7 @@ var GetUserProfile = function () {
 			return new Promise(function (resolve, reject) {
 				var possibleCachedVal = ProfileCache.get(id);
 				// 缓存命中，直接返回
-				if (possibleCachedVal) {
-					return resolve(possibleCachedVal);
-				}
+				if (possibleCachedVal) return resolve(possibleCachedVal);
 				// 防止重复
 				if (_this2.queue.indexOf(id) === -1) _this2.queue.push(id);
 				Event.on('done' + id, function (profile) {
@@ -516,4 +518,3 @@ var GetUserProfile = function () {
 return GetUserProfile;
 
 })));
-//# sourceMappingURL=get-user-profile.js.map

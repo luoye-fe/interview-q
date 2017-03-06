@@ -41,9 +41,7 @@ class GetUserProfile {
 		return new Promise((resolve, reject) => {
 			let possibleCachedVal = ProfileCache.get(id);
 			// 缓存命中，直接返回
-			if (possibleCachedVal) {
-				return resolve(possibleCachedVal);
-			}
+			if (possibleCachedVal) return resolve(possibleCachedVal);
 			// 防止重复
 			if (this.queue.indexOf(id) === -1) this.queue.push(id);
 			Event.on('done' + id, profile => {

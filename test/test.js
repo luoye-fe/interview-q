@@ -27,28 +27,28 @@ userProfile.get(1)
 // 	})(i);
 // }
 
-// getUserProfile(1)
-//     .then(res => {
-//         console.log(1);
-//         console.log(res);
-//     });
-// getUserProfile(2)
-//     .then(res => {
-//         console.log(2);
-//         console.log(res);
-//     });
+userProfile.get(1)
+    .then(res => {
+        console.log(1);
+        console.log(res);
+    });
+userProfile.get(2)
+    .then(res => {
+        console.log(2);
+        console.log(res);
+    });
 
-// setTimeout(function() {
-//     // 从缓存走
-//     getUserProfile(2)
-//         .then(res => {
-//             console.log(2);
-//             console.log(res);
-//         });
-//     // 从接口走
-//     // getUserProfile(3)
-//     //     .then(res => {
-//     //         console.log(3);
-//     //         console.log(res);
-//     //     });
-// }, 2000)
+setTimeout(function() {
+    // 从缓存走
+    userProfile.get(2)
+        .then(res => {
+            console.log(2);
+            console.log(res);
+        });
+    // 从接口走
+    userProfile.get(3)
+        .then(res => {
+            console.log(3);
+            console.log(res);
+        });
+}, 2000)
