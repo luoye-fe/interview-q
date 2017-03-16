@@ -406,6 +406,7 @@ function requestUserProfile(uidList) {
  * 优化4: 有缓存时直接返回，不等待 debounce 完成
  * 优化5: 收集 100 个 uid，立即请求数据，不等待全部 uid 收集完毕
  * 优化6: 精简了代码，减少不必要的函数调用，嵌套，额外判断等
+ * 优化7: 优化 debounce 函数，改为固定每 100ms 触发一次，尽快的发出请求
  */
 
 var ProfileCache = new Cache();
