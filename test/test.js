@@ -5,13 +5,17 @@ const userProfile = new GetUserProfile({
 	preLoadList: [1, 2]
 });
 
-userProfile.get(1)
-	.then(res => {
-		console.log(1, res);
-	})
-	.catch(e => {
-		console.log(e);
-	})
+// const userProfile2 = new GetUserProfile({
+//     preLoadList: [3, 4]
+// });
+
+// userProfile.get(1)
+// 	.then(res => {
+// 		console.log(1, res);
+// 	})
+// 	.catch(e => {
+// 		console.log(e);
+// 	})
 
 
 // // 业务逻辑

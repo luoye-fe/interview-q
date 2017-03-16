@@ -37,7 +37,7 @@ class GetUserProfile {
 		// 预请求
 		if (this.queue.length) this.debounceCollect(this.request.bind(this, this.queue));
 	}
-	get(id, noCache) {
+	get(id) {
 		return new Promise((resolve, reject) => {
 			let possibleCachedVal = ProfileCache.get(id);
 			// 缓存命中，直接返回
@@ -90,22 +90,29 @@ class GetUserProfile {
 				cb(e, result);
 			});
 	}
-	debounce(func, wait, immediate) {
+	debounce(func, wait) { // 优化，从以往的收集100个触发，改成每 100ms 固定触发一次，更快的发起数据请求
 		const VM = this;
 		let timeout;
+		let elapsed;
+		let lastRunTime = Date.now(); // 上次运行时间
 		return function() {
 			const _this = this;
 			const args = arguments;
 
-			function later() {
-				timeout = null;
-				if (!immediate) func.apply(_this, args);
-			};
-			// 增加 100 个收集完成 flag
-			const callNow = (immediate && !timeout) || (VM.queue.length >= 100);
 			clearTimeout(timeout);
-			timeout = setTimeout(later, wait);
-			if (callNow) func.apply(_this, args);
+
+			elapsed = Date.now() - lastRunTime;
+			function later() {
+				lastRunTime = Date.now();
+				timeout = null;
+				func.apply(_this, args);
+			};
+
+			if (elapsed > wait) {
+				later();
+			} else {
+				timeout = setTimeout(later, wait - elapsed); // 延迟差值出发请求
+			}
 		};
 	};
 }

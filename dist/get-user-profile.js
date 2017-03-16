@@ -431,7 +431,7 @@ var GetUserProfile = function () {
 
 	createClass(GetUserProfile, [{
 		key: 'get',
-		value: function get(id, noCache) {
+		value: function get(id) {
 			var _this2 = this;
 
 			return new Promise(function (resolve, reject) {
@@ -493,22 +493,30 @@ var GetUserProfile = function () {
 		}
 	}, {
 		key: 'debounce',
-		value: function debounce(func, wait, immediate) {
+		value: function debounce(func, wait) {
+			// 优化，从以往的收集100个触发，改成每 100ms 固定触发一次，更快的发起数据请求
 			var VM = this;
 			var timeout = void 0;
+			var elapsed = void 0;
+			var lastRunTime = Date.now(); // 上次运行时间
 			return function () {
 				var _this = this;
 				var args = arguments;
 
-				function later() {
-					timeout = null;
-					if (!immediate) func.apply(_this, args);
-				}
-				// 增加 100 个收集完成 flag
-				var callNow = immediate && !timeout || VM.queue.length >= 100;
 				clearTimeout(timeout);
-				timeout = setTimeout(later, wait);
-				if (callNow) func.apply(_this, args);
+
+				elapsed = Date.now() - lastRunTime;
+				function later() {
+					lastRunTime = Date.now();
+					timeout = null;
+					func.apply(_this, args);
+				}
+
+				if (elapsed > wait) {
+					later();
+				} else {
+					timeout = setTimeout(later, wait - elapsed); // 延迟差值出发请求
+				}
 			};
 		}
 	}]);
